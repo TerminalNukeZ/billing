@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information including Pterodactyl integration details.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "pterodactylId": { "type": "integer", "description": "User ID on the Pterodactyl panel" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "role": { "type": "string", "enum": ["admin", "client"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Service": {
+      "title": "Hosting Service",
+      "description": "A category of hosting (e.g., Minecraft, VPS).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string", "description": "Lucide icon name" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Plan": {
+      "title": "Hosting Plan",
+      "description": "A specific plan for a service.",
+      "type": "object",
+      "properties": {
+        "serviceId": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "cpu": { "type": "string" },
+        "memory": { "type": "string" },
+        "disk": { "type": "string" },
+        "backups": { "type": "string" },
+        "ports": { "type": "string" },
+        "databases": { "type": "string" },
+        "isPopular": { "type": "boolean" },
+        "icon": { "type": "string" },
+        "pterodactylEggId": { "type": "integer" },
+        "pterodactylNestId": { "type": "integer" }
+      },
+      "required": ["serviceId", "name", "price"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An order for a hosting plan.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "paid", "provisioned", "failed"] },
+        "amount": { "type": "number" },
+        "paymentId": { "type": "string", "description": "ID from the payment gateway" },
+        "pterodactylServerId": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "planId", "status", "amount"]
+    },
+    "Setting": {
+      "title": "Site Setting",
+      "description": "Global configuration for the hosting platform.",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "contactEmail": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/services/{serviceId}": { "schema": "Service", "description": "Hosting categories" },
+    "/services/{serviceId}/plans/{planId}": { "schema": "Plan", "description": "Plans for a service" },
+    "/orders/{orderId}": { "schema": "Order", "description": "Customer orders" },
+    "/settings/global": { "schema": "Setting", "description": "Site-wide settings" }
+  }
+}

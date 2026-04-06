@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{uid}
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - email: string (required) - User email
+    //   - displayName: string (optional) - User display name
+    //   - pterodactylId: int (optional) - User ID on Pterodactyl panel
+    //   - createdAt: timestamp (optional) - Creation time
+    //   - role: string (required) - 'admin' or 'client'
+    //
+    // Collection: /services/{serviceId}
+    // Fields:
+    //   - name: string (required)
+    //   - slug: string (required)
+    //   - description: string (optional)
+    //   - icon: string (optional)
+    //
+    // Collection: /services/{serviceId}/plans/{planId}
+    // Fields:
+    //   - serviceId: string (required)
+    //   - name: string (required)
+    //   - price: number (required)
+    //   - cpu: string
+    //   - memory: string
+    //   - disk: string
+    //   - backups: string
+    //   - ports: string
+    //   - databases: string
+    //   - isPopular: bool
+    //   - icon: string
+    //   - pterodactylEggId: int
+    //   - pterodactylNestId: int
+    //
+    // Collection: /orders/{orderId}
+    // Fields:
+    //   - userId: string (required)
+    //   - planId: string (required)
+    //   - status: string (required) - 'pending', 'paid', 'provisioned', 'failed'
+    //   - amount: number (required)
+    //   - paymentId: string (optional)
+    //   - pterodactylServerId: int (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: /settings/global
+    // Fields:
+    //   - brandName: string
+    //   - logoUrl: string
+    //   - contactEmail: string
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "terminalskry1337@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'client'];
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'planId', 'status', 'amount']) &&
+             data.userId is string &&
+             data.planId is string &&
+             data.status in ['pending', 'paid', 'provisioned', 'failed'] &&
+             data.amount is number && data.amount >= 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // User Profiles
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    (isOwner(uid) && request.resource.data.role == 'client' || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(uid) && request.resource.data.role == resource.data.role) || isAdmin());
+    }
+
+    // Services and Plans (Publicly readable, Admin writable)
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      
+      match /plans/{planId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data) && 
+                    (request.auth.uid == request.resource.data.userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()) &&
+                    isValidOrder(request.resource.data) &&
+                    (isAdmin() || (request.resource.data.userId == resource.data.userId && 
+                                  request.resource.data.amount == resource.data.amount &&
+                                  request.resource.data.planId == resource.data.planId));
+    }
+
+    // Settings
+    match /settings/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
